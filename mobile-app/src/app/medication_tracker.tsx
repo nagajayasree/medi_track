@@ -171,7 +171,7 @@ export default function AddMedicationScreen({
               value={endDate ?? new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={(_event, selectedDate) => {
+              onValueChange={(_event, selectedDate) => {
                 setShowEndPicker(Platform.OS === 'ios');
                 if (selectedDate) setEndDate(selectedDate);
                 setShowEndPicker(false);
