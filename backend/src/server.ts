@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
-import authRoutes from './routes/medication.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import medicationRoutes from './routes/medication.routes.js'
 
 dotenv.config();
