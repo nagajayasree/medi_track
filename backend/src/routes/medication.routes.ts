@@ -1,10 +1,12 @@
+// src/routes/medication.routes.ts
 import { Router } from 'express';
 import { type AuthRequest, requireAuth } from '../middleware/auth.middleware.js';
 import Medication from '../models/Medication.js';
 
 const router = Router();
 
-// GET /api/medications — list the logged-in user's active medications
+// GET /api/medications — list ALL of the logged-in user's medications
+// (active and inactive) so the frontend can group/display both
 router.get('/', requireAuth, async (req: AuthRequest, res) => {
   try {
     if (!req.userId) {
@@ -13,8 +15,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
 
     const medications = await Medication.find({
       userId: req.userId,
-      active: true,
-    } as Record<string, unknown>);
+    } as Record<string, unknown>).sort({ startDate: -1 });
 
     res.json(medications);
   } catch (err) {
@@ -73,7 +74,8 @@ router.patch('/:id', requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// DELETE /api/medications/:id — soft-delete (deactivate) a medication
+// DELETE /api/medications/:id — soft-delete (deactivate) a medication,
+// stamping when it was discontinued
 router.delete('/:id', requireAuth, async (req: AuthRequest, res) => {
   try {
     if (!req.userId) {
@@ -82,14 +84,15 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res) => {
 
     const medication = await Medication.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId } as Record<string, unknown>,
-      { active: false },
+      { active: false, deactivatedAt: new Date() },
+      { new: true },
     );
 
     if (!medication) {
       return res.status(404).json({ error: 'Medication not found' });
     }
 
-    res.status(204).send();
+    res.json(medication);
   } catch (err) {
     console.error('Delete medication error:', err);
     res.status(500).json({ error: 'Something went wrong. Try again.' });

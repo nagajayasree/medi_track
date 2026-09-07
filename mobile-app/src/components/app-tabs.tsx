@@ -18,9 +18,14 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="medication_tracker">
-        <NativeTabs.Trigger.Label>Medication Tracker</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="my-medications">
+        <NativeTabs.Trigger.Label>My Medications</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="pills.fill" md="pill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="person.fill" md="person" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

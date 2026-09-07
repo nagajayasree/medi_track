@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
-import medicationRoutes from './routes/medication.routes.js'
+import medicationRoutes from './routes/medication.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 dotenv.config();
 connectDB();
@@ -16,6 +17,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/medications', medicationRoutes);
+app.use('/api/users', userRoutes);
 // app.use('/api/doses', doseRoutes);
 // app.use('/api/vitals', vitalRoutes);
 // app.use('/api/symptoms', symptomRoutes);
