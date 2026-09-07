@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -11,10 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-type AddMedicationScreenProps = {
-  navigation: any;
-};
+import { useMedications } from '@/context/MedicationContext';
 
 const FREQUENCY_OPTIONS = [
   'Once daily',
@@ -24,88 +21,83 @@ const FREQUENCY_OPTIONS = [
   'As needed',
 ];
 
-export type Medication = {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-  startDate: Date;
-  endDate: Date | null;
-};
+export default function EditMedicationScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { medications, updateMedication } = useMedications();
 
-export default function AddMedicationScreen({
-  navigation,
-}: AddMedicationScreenProps) {
-  const [name, setName] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [frequency, setFrequency] = useState(FREQUENCY_OPTIONS[0]);
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [hasEndDate, setHasEndDate] = useState(false);
+  const medication = medications.find((m) => m._id === id);
 
+  // Fallbacks matter here — if this screen is ever reached with a stale
+  // or missing id (e.g. deep link, fast back-nav), we don't want a crash.
+  const [name, setName] = useState(medication?.name ?? '');
+  const [dosage, setDosage] = useState(medication?.dosage ?? '');
+  const [frequency, setFrequency] = useState(
+    medication?.frequency ?? FREQUENCY_OPTIONS[0],
+  );
+  const [startDate, setStartDate] = useState(
+    medication?.startDate ? new Date(medication.startDate) : new Date(),
+  );
   const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!medication) {
+    return (
+      <View style={styles.notFound}>
+        <Text style={styles.notFoundText}>Medication not found.</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.notFoundLink}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const validate = (): string | null => {
     if (!name.trim()) return 'Please enter a medication name.';
     if (!dosage.trim()) return 'Please enter a dosage.';
-    if (hasEndDate && endDate && endDate < startDate) {
-      return 'End date must be after the start date.';
-    }
     return null;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const error = validate();
     if (error) {
       Alert.alert('Missing information', error);
       return;
     }
 
-    const newMedication: Medication = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      dosage: dosage.trim(),
-      frequency,
-      startDate,
-      endDate: hasEndDate ? endDate : null,
-    };
-
-    // TODO: replace with your actual save step, e.g.:
-    // await api.post('/medications', newMedication)
-    // or AsyncStorage / your local DB layer
-    console.log('Saving medication:', JSON.stringify(newMedication, null, 2));
-    setName('');
-    setDosage('');
-    setFrequency(FREQUENCY_OPTIONS[0]);
-    setStartDate(new Date());
-    setEndDate(null);
-    Alert.alert(
-      'Medication saved',
-      'Your medication has been saved successfully.',
-    );
-
-    router.back();
+    setIsSubmitting(true);
+    try {
+      await updateMedication(medication._id, {
+        name: name.trim(),
+        dosage: dosage.trim(),
+        frequency,
+        startDate: startDate.toISOString(),
+      });
+      Alert.alert('Medication updated', 'Your changes have been saved.');
+      router.back();
+    } catch (err: any) {
+      Alert.alert(
+        'Could not save changes',
+        err.response?.data?.error ?? 'Something went wrong. Please try again.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Edit medication</Text>
+
       <Text style={styles.label}>Medication name</Text>
       <TextInput
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Metformin"
         autoCapitalize="words"
       />
 
       <Text style={styles.label}>Dosage</Text>
-      <TextInput
-        style={styles.input}
-        value={dosage}
-        onChangeText={setDosage}
-        placeholder="e.g. 500mg"
-      />
+      <TextInput style={styles.input} value={dosage} onChangeText={setDosage} />
 
       <Text style={styles.label}>Frequency</Text>
       <View style={styles.frequencyRow}>
@@ -150,39 +142,21 @@ export default function AddMedicationScreen({
         />
       )}
 
-      <View style={styles.endDateHeader}>
-        <Text style={styles.label}>End date</Text>
-        <TouchableOpacity onPress={() => setHasEndDate((prev) => !prev)}>
-          <Text style={styles.toggleText}>
-            {hasEndDate ? 'Make ongoing' : 'Set an end date'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      {hasEndDate && (
-        <>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => setShowEndPicker(true)}
-          >
-            <Text>{(endDate ?? new Date()).toDateString()}</Text>
-          </TouchableOpacity>
-          {showEndPicker && (
-            <DateTimePicker
-              value={endDate ?? new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onValueChange={(_event, selectedDate) => {
-                setShowEndPicker(Platform.OS === 'ios');
-                if (selectedDate) setEndDate(selectedDate);
-                setShowEndPicker(false);
-              }}
-            />
-          )}
-        </>
-      )}
+      <TouchableOpacity
+        style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+        onPress={handleSave}
+        disabled={isSubmitting}
+      >
+        <Text style={styles.saveButtonText}>
+          {isSubmitting ? 'Saving...' : 'Save changes'}
+        </Text>
+      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>Save medication</Text>
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={() => router.back()}
+      >
+        <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -191,6 +165,7 @@ export default function AddMedicationScreen({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 20, paddingBottom: 60 },
+  title: { fontSize: 22, fontWeight: '700', marginBottom: 16, color: '#111' },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -224,13 +199,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
   },
-  endDateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  toggleText: { color: '#2563eb', fontSize: 13, fontWeight: '600' },
   saveButton: {
     marginTop: 32,
     backgroundColor: '#2563eb',
@@ -238,5 +206,16 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
+  saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  cancelButton: { marginTop: 16, alignItems: 'center' },
+  cancelText: { color: '#888', fontSize: 14 },
+  notFound: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  notFoundText: { fontSize: 15, color: '#666' },
+  notFoundLink: { color: '#2563eb', fontWeight: '600' },
 });
